@@ -1,0 +1,128 @@
+---
+title: "IRIS"
+author: "Pramod Verma"
+date: "16 March 2018"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is the R Markdown file created for introducing the basic building blocks of R to PSA Data Analytics Technical Participants.
+
+```{r message=FALSE, warning=FALSE}
+```
+
+```{r iris}
+
+head(iris)
+str(iris)
+dim(iris)
+names(iris)
+class(iris)
+summary(iris)
+```
+
+## Assigning Variables and Plotting
+
+```{r }
+
+x <- iris$Sepal.Length
+y <- iris$Sepal.Width
+z <- iris$Species
+
+plot(x)
+hist(x, col = "red")
+plot(x,y)
+boxplot(x)
+
+```
+
+## Looking at all the species in the same scatterplot for Petal Length & Width
+
+```{r }
+plot(iris$Petal.Length, iris$Petal.Width, pch=21, bg=c("red","green3","blue")[unclass(iris$Species)], 
+main="Edgar Anderson's Iris Data")
+```
+
+
+## Looking at the scatterplot of all the variables for each species
+
+```{r }
+pairs(iris[1:4], main = "Edgar Anderson's Iris Data", pch = 21, 
+bg = c("red", "green3", "blue")[unclass(iris$Species)])
+
+```
+
+## Creating pi chart to show the share of each species
+
+```{r }
+pie(table(iris$Species), 
+main = "Pie Chart of the Iris data set Species", 
+col = c("orange1", "chocolate", "coral"), 
+radius = 1)
+
+```
+
+## Using for loop to create multiple plots
+
+```{r }
+par(mfrow=c(1,4)) 
+color <- c("red", "blue","green","brown") 
+for(i in 1:4) { 
+hist(iris[,i], main=names(iris)[i], col = color[i]) }
+
+```
+
+## Finding out the correlation among all the numerical variables
+
+```{r message=FALSE, warning=FALSE}
+cor(iris[,c(1:4)])
+library(PerformanceAnalytics)
+chart.Correlation(iris[,c(1,2,3,4)], histogram=TRUE, pch=19)
+
+```
+
+## Demostration of K Means Clustering
+
+```{r }
+normalize <- function(x){
+  return ((x-min(x))/(max(x)-min(x)))
+}
+
+iris$Sepal.Length<- normalize(iris$Sepal.Length)
+iris$Sepal.Width<- normalize(iris$Sepal.Width)
+iris$Petal.Length<- normalize(iris$Petal.Length)
+iris$Petal.Width<- normalize(iris$Petal.Width)
+head(iris)
+
+result<- kmeans(iris[,c(1,2,3,4)],3)
+
+
+plot(iris[c(1,2)], col=result$cluster, pch = 19, main =" Clusters based on Sepal Length and Width")
+
+plot(iris[c(1,2)], col=iris$Species, pch = 19, main =" Clusters based on Flower Species")
+
+plot(iris[c(3,4)], col=result$cluster, pch = 19, main =" Clusters based on Petal Length and Width")
+
+plot(iris[c(3,4)], col=iris$Species, pch = 19, main =" Clusters based on Flower Species")
+```
+
+## Running the k means algorithms four times on the same dataset
+
+```{r }
+for (i in 1:4) {
+  set.seed(100 +50*i)
+  result<- kmeans(iris[,c(1,2,3,4)],3)
+plot(iris[c(3,4)], col=result$cluster, pch = 19, main =c(" Clusters based on Petal Length and Width: Iteration ", i)) }
+
+```
+#### It shows the importance of multiple iteration and averaging them
+
+## End of the Script

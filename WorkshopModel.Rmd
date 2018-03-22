@@ -1,0 +1,392 @@
+---
+title: '**Predictive Model Using Logistic Regression**'
+author: 'Author: Data For Excellence (DFE), GPE, PSA International'
+date: 'Created on: 19 March 2018'
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+--- 
+
+![](D:/Data Analytics Workshop/Data Analytics Technical Workshop/Images/Title.png)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Use of this document
+
+This file is created for the sole use of PSA Data Analytics Technical Workshop participants for demonstration and learning about the predictive modelling. All rights reserved.
+
+## Scripting language used
+
+This document is created using R Markdown, a scripting language available as open source from R Foundation. 
+
+## Dataset used in the model
+
+The dataset, popularly known as "Adult" data, is publicly available in the UCI machine learning repository. 
+The dataset is further modified for the purpose of making it useful for PSA training
+
+
+### <span style="color:green">**End of Introduction Section**</span> 
+  ***
+  ***
+  ***
+  ***
+### <span style="color:green">**Start of Stage 1**</span> 
+
+
+## <span style="color:blue">**1. The Business Understanding**</span>
+
+The income of a person is a function of many factors/attributes. Given enough data about these attributes, a  supervised machine learning model could be developed.
+
+We want to predict who will earn more than 50k salary based on the 14 attributes of a person. 
+
+The output is Yes/No or (1/0), where Yes or 1 indicate that the person will earn more than 50k.
+Since the output is a categorical variable, we will use Logistics Regression to predict if a person will earn 50k or not.
+
+
+### Loading all the required packages
+
+```{r message=FALSE, warning=FALSE}
+
+library(dplyr)
+library(InformationValue)
+library(rmarkdown)
+
+```
+May need to load more libraries/packages depending on local computer/server
+
+### Loading the file into R data-frame
+
+```{r }
+
+inputData <- read.csv("http://rstatistics.net/wp-content/uploads/2015/09/adult.csv")
+# If the link does not work use "D:/adult.csv"
+head(inputData)
+inputData <- tbl_df(inputData)
+
+
+```
+
+### <span style="color:green">**End of Stage 1**</span> 
+  ***
+  ***
+  ***
+  ***
+### <span style="color:green">**Start of Stage 2**</span> 
+
+## <span style="color:blue">**2. Data Understanding**</span>
+
+The dataset used in this project has 48,842 records and a binomial label indicating a salary of <50K or >50K
+USD. 76% of the records in the dataset have a class label of <50K. 
+
+Data fields
+***********
+AGE
+WORKCLASS
+FNLWGT
+EDUCATION
+EDUCATIONNUM
+MARITALSTATUS
+OCCUPATION
+RELATIONSHIP
+RACE
+SEX
+CAPITALGAIN
+CAPITALLOSS
+HOURSPERWEEK
+NATIVECOUNTRY
+ABOVE50K
+
+### Looking at the structure of the data
+
+```{r }
+dim(inputData)
+class(inputData)
+str(inputData)
+summary(inputData)
+
+```
+
+
+There are 14 attributes consisting of eight categorical and six continuous attributes. 
+The work class describes the type of employer such as self-employed or federal and occupation describes the employment type such as farming, clerical or managerial. 
+
+Education contains the highest level of education attained such as high school or doctorate. 
+
+The relationship attribute has categories such as unmarried or husband and marital status has categories such as married or separated. 
+
+The other nominal attributes are country of residence, gender and race. 
+
+The continuous attributes are age, hours worked per week, education number (numeric representation of the education attribute), capital gain and loss, and a weight attribute which is a demographic score assigned to an individual based on information such as state of residence and type of employment. 
+
+Some of the variables are not self-explanatory. The continuous variable fnlwgt represents final weight, which is the number of units in the target population that the responding unit represents. 
+
+The variable education_num stands for the number of years of education in total, which is a continuous representation of the discrete variable education. The variable relationship represents the responding unit's role in the family.  
+
+capital_gain and capital_loss are income from investment sources other than wage/salary.
+
+For simplicity of this analysis, the weighting factor is discarded. Total number of years of education can represent by the highest education level completed. Role in the family can be assessed from gender and marital status. Thus, the following 3 variables are deleted education,  relationship, and fnlwgt.
+
+
+### Checking the class bias of the data
+
+```{r }
+table(inputData$ABOVE50K)
+
+# histogram of age by income group
+barplot(table(inputData$ABOVE50K), col = "lightblue")
+
+```
+
+### Since there is a class bias, a condition observed when the proportion of events is much smaller than proportion of non-events. So we must sample the observations in approximately equal proportions to get better models.
+
+
+### <span style="color:green">**End of Stage 2**</span> 
+  ***
+  ***
+  ***
+  ***
+### <span style="color:green">**Start of Stage 3**</span> 
+
+## <span style="color:blue">**3. Data Preparation**</span>##
+
+
+#### First we want to clean up the data set to include only those variables which are importants
+#### From our data understanding, we know FNLWGT and  RELATIONSHIP is not required.
+
+```{r }
+inputData$FNLWGT <- NULL
+inputData$RELATIONSHIP <- NULL
+head(inputData$FNLWGT)
+head(inputData$RELATIONSHIP)
+
+```
+
+
+#### Creating two sets of data from given data
+#### Training set - For training the model
+#### and Test set - For test and validation
+
+#### Creating training data set
+
+```{r }
+input_ones <- inputData[which(inputData$ABOVE50K == 1), ]  # all 1's
+input_zeros <- inputData[which(inputData$ABOVE50K == 0), ]  # all 0's
+
+set.seed(100)  # for repeatability of samples
+
+input_ones_training_rows <- sample(1:nrow(input_ones), 0.7*nrow(input_ones))  # 1's for training
+input_zeros_training_rows <- sample(1:nrow(input_zeros), 0.7*nrow(input_ones))  # 0's for training.
+
+#Pick as many 0's as 1's
+training_ones <- input_ones[input_ones_training_rows, ]  
+training_zeros <- input_zeros[input_zeros_training_rows, ]
+
+# row bind the 1's and 0's 
+trainingData <- rbind(training_ones, training_zeros)  
+
+# Checking the bias on training data
+barplot(table(trainingData$ABOVE50K),col = "lightblue")
+head(trainingData)
+
+```
+
+### Creating the test data set
+```{r }
+test_ones <- input_ones[-input_ones_training_rows, ]
+test_zeros <- input_zeros[-input_zeros_training_rows, ]
+
+# row bind the 1's and 0's
+testData <- rbind(test_ones, test_zeros)  
+
+# We do not need to correct the bias on test data because model should take care of future uncertainity
+barplot(table(testData$ABOVE50K),col = "lightblue")
+head(testData)
+```
+
+## Feature Selection
+### Now we want to know that out of 14 attributes, which are the most important one.There are many methods to find out the best attributes. We will use WOE (Weight of Evidence) method. The choice of feature selction is based on data types and model types.
+
+**Weight of evidence (WOE)** is a measure of how much the evidence supports or undermines a hypothesis. WOE measures the relative risk of an attribute of binning level. The value depends on whether the value of the target variable is a non-event or an event.
+
+
+## Compute Information Values
+**The smbinning::smbinning** function converts a continuous variable into a categorical variable using recursive partitioning. We will first convert them to categorical variables and then, capture the information values for all variables in iv_df
+
+```{r }
+
+# segregate continuous and factor variables
+factor_vars <- c ("WORKCLASS", "EDUCATION", "MARITALSTATUS", "OCCUPATION", "RELATIONSHIP", "RACE", "SEX", "NATIVECOUNTRY")
+continuous_vars <- c("AGE", "FNLWGT","EDUCATIONNUM", "HOURSPERWEEK", "CAPITALGAIN", "CAPITALLOSS")
+
+
+# initialization for the for IV results
+iv_df <- data.frame(VARS=c(factor_vars, continuous_vars), IV=numeric(14))  
+
+
+# compute IV for categorical Variables
+
+iv_df[iv_df$VARS == "WORKCLASS", "IV"] <- IV(X=inputData$WORKCLASS, Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "EDUCATION", "IV"] <- IV(X=inputData$EDUCATION, Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "MARITALSTATUS", "IV"] <- IV(X=inputData$MARITALSTATUS, Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "OCCUPATION", "IV"] <- IV(X=inputData$OCCUPATION, Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "RACE", "IV"] <- IV(X=inputData$RACE, Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "SEX", "IV"] <- IV(X=inputData$SEX, Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "NATIVECOUNTRY", "IV"] <- IV(X=inputData$NATIVECOUNTRY, Y=inputData$ABOVE50K)[1]
+
+
+# compute IV for Continuous Variables
+
+iv_df[iv_df$VARS == "AGE", "IV"] <- IV(X=as.factor(inputData$AGE), Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "EDUCATIONNUM", "IV"] <- IV(X=as.factor(inputData$EDUCATIONNUM), Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "HOURSPERWEEK", "IV"] <- IV(X=as.factor(inputData$HOURSPERWEEK), Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "CAPITALGAIN", "IV"] <- IV(X=as.factor(inputData$CAPITALGAIN), Y=inputData$ABOVE50K)[1]
+iv_df[iv_df$VARS == "CAPITALLOSS", "IV"] <- IV(X=as.factor(inputData$CAPITALLOSS), Y=inputData$ABOVE50K)[1]
+
+
+iv_df <- iv_df[order(-iv_df$IV), ]  # sort
+iv_df
+
+```
+
+
+```{r }
+
+table(inputData$ABOVE50K,inputData$MARITALSTATUS )
+barplot(table(inputData$ABOVE50K,inputData$MARITALSTATUS ),col=c("darkblue","red"),legend = TRUE, cex.names=0.8)
+
+```
+
+### <span style="color:green">**End of Stage 3**</span> 
+  ***
+  ***
+  ***
+  ***
+### <span style="color:green">**Start of Stage 4**</span> 
+
+## <span style="color:blue">**4. Modelling**</span>##
+
+Building the Logistic Model using the most significant attributes which are
+
+MARITALSTATUS
+AGE
+OCCUPATION 
+EDUCATION 
+EDUCATIONNUM 
+HOURSPERWEEK
+CAPITALGAIN
+SEX
+
+#### However, we see that EDUCATION AND EDUCATIONNUM ARE HIGHLY CORELATED SO WE CAN PICK ONLY ONE
+
+```{r }
+logitMod <- glm(ABOVE50K ~ MARITALSTATUS + AGE + OCCUPATION + EDUCATION + HOURSPERWEEK + CAPITALGAIN + SEX, data=trainingData, family=binomial(link="logit"))
+
+# predicted scores
+predicted <- predict(logitMod, testData, type="response")  
+summary(logitMod)
+
+```
+
+### <span style="color:green">**End of Stage 4**</span> 
+  ***
+  ***
+  ***
+  ***
+### <span style="color:green">**Start of Stage 5**</span> 
+
+## <span style="color:blue">**5. Evaluation**</span>##
+
+#### We need to evaluate the model using the test data. Evaluation checks a number of parameters for accuracy. In classication problems, we should be checking the followin parameters
+
+
+####ROC
+
+Receiver Operating Characteristics Curve traces the percentage of true positives accurately predicted by a given logit model as the prediction probability cutoff is lowered from 1 to 0. For a good model, as the cutoff is lowered, it should mark more of actual 1's as positives and lesser of actual 0's as 1's. So for a good model, the curve should rise steeply, indicating that the TPR (Y-Axis) increases faster than the FPR (X-Axis) as the cutoff score decreases. Greater the area under the ROC curve, better the predictive ability of the model.
+
+```{r }
+# The model has area under ROC curve 89.7%, which is pretty good
+plotROC(testData$ABOVE50K, predicted)
+```
+
+
+
+
+#### Specificity and Sensitivity
+
+Sensitivity (or True Positive Rate) is the percentage of 1's (actuals) correctly predicted by the model
+
+specificity is the percentage of 0's (actuals) correctly predicted. 
+Specificity can also be calculated as 1 - False Positive Rate.
+
+
+```{r }
+sensitivity(testData$ABOVE50K, predicted)
+specificity(testData$ABOVE50K, predicted)
+
+```
+
+The above numbers are calculated on the validation sample that was not used for training the model. So, a truth detection rate of 82% on test data is good.
+
+#### Confusion Matrix
+
+```{r }
+cm <- as.data.frame(confusionMatrix(testData$ABOVE50K, predicted))
+colnames(cm) <- c("Actual 0", "Actual 1")
+rownames(cm) <- c("Predicted 0", "Predicted 1")
+cm
+fourfoldplot(as.matrix(cm))
+```
+
+### <span style="color:green">**End of Stage 5**</span> 
+  ***
+  ***
+  ***
+  ***
+### <span style="color:green">**Start of Stage 6**</span> 
+
+## <span style="color:blue">**6. Deployment**</span>##
+
+Creation of the model is generally not the end of the project. Even if the purpose of the model is to increase knowledge of the data, the knowledge gained will need to be organized and presented in a way that the customer can use it. 
+It often involves applying "live" models within an organization's decision making processes. For example, real-time personalization of Web pages or repeated scoring of marketing databases. Depending on the requirements, the deployment phase can be as simple as generating a report or as complex as implementing a repeatable Data Analytics process across the enterprise. 
+
+In many cases, it is the customer, not the data analyst, who carries out the deployment steps. However, even if the analyst will carry out the deployment effort, it is important for the customer to understand up front what actions need to be carried out in order to actually make use of the created models.
+
+
+** The deployment of the model will depend on the IT/product architecture, with which it needs to be integrated. The model could run outside the IT/product architecture. The output could be integrated with the system using API or similar interface.**
+
+If the model needs to be integrated with a product (like GTOS), then the product should be able to support ML algorithms. 
+Deployment is driven by IT and  engineerng team with the support from the data scientist.
+
+
+### <span style="color:green">**End of Stage 6**</span> 
+  ***
+  ***
+  ***
+  ***
+### <span style="color:green">**Start of Stage 7**</span> 
+
+## <span style="color:blue">**7. Maintenance and Support**</span>
+
+A Data Analytic product could be created and deployed in less than a year. However, the maintenance and support of the product could run into years. This phase is very important because of changing nature of data and processes within an organisation. The data product may require fine tuning to accommodate the new realities.
+
+#### Plan Maintenance and Support Roadmap
+
+-- Important if the Data Analytics results become part of the day-to-day business and IT environment
+
+-- Helps to avoid unnecessarily long periods of incorrect usage of Data Analytics results
+
+-- Needs a detailed plan on monitoring process
+
+-- Takes into account the specific type of deployment
+
+
+
+## <span style="color:blue">**End of the Script**</span>
+
+
+
+
+
